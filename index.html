@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+</head>
+<body>
+	<script type="text/javascript">
+
+		/**
+		 * https://en.wikipedia.org/wiki/A*_search_algorithm
+		 * http://theory.stanford.edu/~amitp/GameProgramming/Heuristics.html
+		 */
+		class A_Star 
+		{
+			constructor (G)
+			{
+				this.Q = [];
+				this.G = G;
+			}
+
+			search (start, goal) 
+			{
+				var openSet = new BinaryMinHeap();
+				openSet.insert(start);
+
+				var cameFrom = [];
+				// start.cameFrom = null;
+
+				// for (var i = 0; i < G.getNodes().length; i++)
+				// {
+				// 	var node = G.getNodes()[i];
+
+				// 	node.fScore = Math.Infinity;
+				// 	node.gScore = Math.Infinity
+
+				// 	this.Q.push(node);
+				// }
+
+				start.cameFrom = null;
+				start.gScore = 0;
+				start.fScore = this.heuristic(start, goal);
+
+				var filtered = openSet.list.filter((node) => { return node != null });
+				// console.log(filtered);
+				while (filtered.length > 0) {
+					var current = openSet.extract();
+
+					if (current.id == goal.id) {
+						return this.reconstruct_path(current);
+						// break;
+					}
+
+					for (var i = 0; i < current.getNeighbours().length; i++) {
+						var neighbour = current.getNeighbours()[i];
+						var tentative_gScore = current.gScore + this.movement_cost(current, neighbour);
+
+						if (tentative_gScore < neighbour.gScore) {
+
+							neighbour.cameFrom = current;
+							neighbour.gScore = tentative_gScore;
+							neighbour.fScore = neighbour.gScore + this.heuristic(neighbour, goal);
+
+							var exist = false;
+							// In the neighbour in the open set
+							for (var n = 0; n < openSet.length; n++)
+							{
+								var obj = openSet[n];
+								if (obj.id == neighbour.id) {
+									exist = true;
+									break;
+								}
+							}
+
+							if (!exist) {
+								openSet.insert(neighbour);
+							}
+						}
+					}
+				}
+
+			}
+
+			heuristic (node, goal) {
+				var dx = Math.abs(node.x - goal.x);
+				var dy = Math.abs(node.y - goal.y);
+
+				var D = 4; // cost of moving vertically and horizontally
+				var D2 = 4; // cost of moving diagonally
+
+				return D * (dx + dy) + (D2 - 2 * D) * Math.min(dx, dy);
+			}
+
+			movement_cost (u, v) {
+				return Math.sqrt(Math.pow(v.x - u.x, 2) + Math.pow(v.y - u.y, 2));
+			}
+
+			reconstruct_path (current) {
+				var paths = [current];
+
+				while (current.cameFrom != null) {
+					current = current.cameFrom;
+					paths.unshift(current);
+				}
+
+				return paths;
+			}
+		}
+
+		class Node 
+		{
+			constructor () 
+			{
+				this.x = undefined;
+				this.y = undefined;
+				this.id = undefined;
+				this.distance = Infinity;
+				this.previous = undefined;
+				this.neighbours = [];
+				this.parent = null;
+
+				this.fScore = Infinity;
+				this.gScore = Infinity;
+				this.cameFrom = null;
+			}
+
+			getNeighbours ()
+			{
+				return this.neighbours;
+			}
+
+			// https://stackoverflow.com/questions/8934877/obtain-smallest-value-from-array-in-javascript
+			shortestNeighbour ()
+			{
+				var distances = [];
+
+				for (var i = 0; i < this.neighbours.length; i++)
+				{
+					var neighbour = this.neighbours[i];
+
+					if (!neighbour) {
+						continue;
+					}
+
+					distances.push(neighbour.distance);
+				}
+
+				var shortest = Math.min(...distances);
+				var index = distances.indexOf(shortest);
+				
+				return this.neighbours[index];
+			}
+		}
+
+		class Graph 
+		{
+			constructor () 
+			{
+				this.nodes = [];
+
+				var size = 5; // 5x5
+				var id = 0;
+
+				for (var x = 0; x < size; x++) {
+					for (var y = 0; y < size; y++) {
+						
+						var node = new Node();
+						node.id = id;
+						node.x = x;
+						node.y = y;
+
+						this.nodes.push(node);
+
+						id = id + 1;
+					}
+				}
+
+				// setting neighbours
+				for (var i = 0; i < this.nodes.length; i++)
+				{
+					var current = this.nodes[i];
+
+					var topLeft = this.nodes.find((node) => { return node.x + 1 == current.x && node.y + 1 == current.y });
+					if (topLeft) {
+						topLeft.distance = Math.sqrt(Math.pow(topLeft.x - current.x, 2) + Math.pow(topLeft.y - current.y, 2));
+						current.neighbours.push(topLeft);
+					}
+
+					var top = this.nodes.find((node) => { return node.x == current.x && node.y + 1 == current.y });
+					if (top) {
+						top.distance = Math.sqrt(Math.pow(top.x - current.x, 2) + Math.pow(top.y - current.y, 2));
+						current.neighbours.push(top);
+					}
+
+					var topRight = this.nodes.find((node) => { return node.x - 1 == current.x && node.y + 1 == current.y });
+					if (topRight) {
+						topRight.distance = Math.sqrt(Math.pow(topRight.x - current.x, 2) + Math.pow(topRight.y - current.y, 2));
+						current.neighbours.push(topRight);
+					}
+
+					var left = this.nodes.find((node) => { return node.x + 1 == current.x && node.y == current.y });
+					if (left) {
+						left.distance = Math.sqrt(Math.pow(left.x - current.x, 2) + Math.pow(left.y - current.y, 2));
+						current.neighbours.push(left);
+					}
+
+					var right = this.nodes.find((node) => { return node.x - 1 == current.x && node.y == current.y });
+					if (right) {
+						right.distance = Math.sqrt(Math.pow(right.x - current.x, 2) + Math.pow(right.y - current.y, 2));
+						current.neighbours.push(right);
+					}
+
+					var bottomLeft = this.nodes.find((node) => { return node.x + 1 == current.x && node.y - 1 == current.y });
+					if (bottomLeft) {
+						bottomLeft.distance = Math.sqrt(Math.pow(bottomLeft.x - current.x, 2) + Math.pow(bottomLeft.y - current.y, 2));
+						current.neighbours.push(bottomLeft);
+					}
+
+					var bottom = this.nodes.find((node) => { return node.x == current.x && node.y - 1 == current.y });
+					if (bottom) {
+						bottom.distance = Math.sqrt(Math.pow(bottom.x - current.x, 2) + Math.pow(bottom.y - current.y, 2));
+						current.neighbours.push(bottom);
+					}
+
+					var bottomRight = this.nodes.find((node) => { return node.x - 1 == current.x && node.y - 1 == current.y });
+
+					if (bottomRight) {
+						bottomRight.distance = Math.sqrt(Math.pow(bottomRight.x - current.x, 2) + Math.pow(bottomRight.y - current.y, 2));
+						current.neighbours.push(bottomRight);
+					}
+				}
+
+
+			}
+
+			getNodes () 
+			{
+				return this.nodes;
+			}
+		}
+
+		/**
+		 * https://en.wikipedia.org/wiki/Binary_heap
+		 */
+		class BinaryMinHeap {
+			
+			constructor () {
+				this.list = [null];
+			}
+
+			/**
+			 * Insert a given node to the list
+			 * @param Node node
+			 * @return void
+			 */
+			insert (node) {
+				var length = this.list.length - 1;
+				var parentIndex = parseInt(this.list.length / 2);
+				var parent = this.list[parentIndex];
+
+				var currentIndex = this.list.length;
+
+				// First node
+				if (this.list.length === 0) {
+					this.list.push(node);
+					return;
+				}
+
+				// Add to the list
+				this.list.push(node);
+
+				while (parent && node.fScore < parent.fScore) {
+
+					var temp = this.list[currentIndex];
+					this.list[currentIndex] = this.list[parentIndex];
+					this.list[parentIndex] = temp;
+
+					currentIndex = parentIndex;
+					parentIndex = parseInt(currentIndex / 2);
+
+					parent = this.list[parentIndex];
+				}
+			}
+
+			/**
+			 * Remove the first index from the list and
+			 * stabilize the binary heap data structure
+			 *
+			 * @return int element
+			 */
+			extract () {
+				var element = this.list[1];
+
+				this.list.splice(1, 1, this.list[this.list.length - 1]);
+				this.list.splice(this.list.length - 1, 1);
+
+				this.stabilize(1);
+
+				return element;
+			}
+
+			/**
+			 * Reposition the given index children
+			 *
+			 * @param int index
+			 * @return void
+			 */
+			stabilize (index) {
+				var leftChild = 2 * index;
+				var rightChild = 2 * index + 1;
+
+				var length = this.list.length - 1;
+				var smallest = index;
+
+				if (
+					leftChild <= length && 
+					this.list[leftChild].fScore < this.list[smallest].fScore
+				)
+				{
+					smallest = leftChild;
+				}
+
+				if (
+					rightChild <= length && 
+					this.list[rightChild].fScore < this.list[smallest].fScore
+				)
+				{
+					smallest = rightChild;
+				}
+
+				if (smallest != index) {
+
+					var temp = this.list[smallest];
+					this.list[smallest] = this.list[index];
+					this.list[index] = temp;
+
+					this.stabilize(smallest);
+				}
+
+			}
+		}
+
+		var G = new Graph();
+		var D = new A_Star(G);
+
+		var node0 = G.getNodes()[0];
+		var node8 = G.getNodes()[7];
+		var node24 = G.getNodes()[24];
+
+		var a_star = new A_Star();
+		console.log(a_star.search(node0, node24));
+
+		console.log("DONE.");
+
+	</script>
+</body>
+</html>
+
