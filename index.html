@@ -10,90 +10,102 @@
 		 * https://en.wikipedia.org/wiki/A*_search_algorithm
 		 * http://theory.stanford.edu/~amitp/GameProgramming/Heuristics.html
 		 */
-		class A_Star 
+		class AStar 
 		{
-			constructor (G)
+			constructor ()
 			{
-				this.Q = [];
-				this.G = G;
+				this.paths = [];
+				this.queue = [];
 			}
 
+			/**
+			 * Search the paths to the from starting to the goal node
+			 *
+			 * @param Node start
+			 * @param Node goal
+			 *
+			 * @return void
+			 */
 			search (start, goal) 
 			{
-				var openSet = new BinaryMinHeap();
-				openSet.insert(start);
-
-				var cameFrom = [];
-				// start.cameFrom = null;
-
-				// for (var i = 0; i < G.getNodes().length; i++)
-				// {
-				// 	var node = G.getNodes()[i];
-
-				// 	node.fScore = Math.Infinity;
-				// 	node.gScore = Math.Infinity
-
-				// 	this.Q.push(node);
-				// }
+				this.queue = new BinaryMinHeap();
+				this.queue.insert(start);
 
 				start.cameFrom = null;
 				start.gScore = 0;
 				start.fScore = this.heuristic(start, goal);
 
-				var filtered = openSet.list.filter((node) => { return node != null });
-				// console.log(filtered);
-				while (filtered.length > 0) {
-					var current = openSet.extract();
+				while (this.queue.notEmpty()) {
+			
+					var current = this.queue.extract();
 
 					if (current.id == goal.id) {
-						return this.reconstruct_path(current);
-						// break;
+						return this.paths = this.reconstruct_path(current, goal);
 					}
 
 					for (var i = 0; i < current.getNeighbours().length; i++) {
 						var neighbour = current.getNeighbours()[i];
+						
+						if (!neighbour) {
+							continue;
+						}
+
 						var tentative_gScore = current.gScore + this.movement_cost(current, neighbour);
 
 						if (tentative_gScore < neighbour.gScore) {
-
 							neighbour.cameFrom = current;
 							neighbour.gScore = tentative_gScore;
 							neighbour.fScore = neighbour.gScore + this.heuristic(neighbour, goal);
 
-							var exist = false;
-							// In the neighbour in the open set
-							for (var n = 0; n < openSet.length; n++)
-							{
-								var obj = openSet[n];
-								if (obj.id == neighbour.id) {
-									exist = true;
-									break;
-								}
-							}
-
-							if (!exist) {
-								openSet.insert(neighbour);
+							// If the neighbour node is not explored.
+							if (!neighbour.explored) {
+								neighbour.explored = true;
+								this.queue.insert(neighbour);
 							}
 						}
 					}
+					// Set node explored flag
+					current.explored = true;
 				}
-
 			}
 
+			/**
+			 * Manhattan heuristic
+			 *
+			 * @param Node node
+			 * @param Node goal
+			 */
 			heuristic (node, goal) {
 				var dx = Math.abs(node.x - goal.x);
 				var dy = Math.abs(node.y - goal.y);
 
-				var D = 4; // cost of moving vertically and horizontally
-				var D2 = 4; // cost of moving diagonally
-
-				return D * (dx + dy) + (D2 - 2 * D) * Math.min(dx, dy);
+				return dx + dy;
 			}
 
-			movement_cost (u, v) {
-				return Math.sqrt(Math.pow(v.x - u.x, 2) + Math.pow(v.y - u.y, 2));
+			/**
+			 * The cost of movement.
+			 * For example, if the tile is a hill, grass or any type.
+			 * movement cost is used to determine the cost if the agent should be
+			 * moving onto the node or move around the tile.
+			 *
+			 * @param Node current
+			 * @param Node next
+			 *
+			 * @return float
+			 */
+			movement_cost (current, next) {
+				return Math.sqrt(
+					Math.pow(next.x - current.x, 2) + 
+					Math.pow(next.y - current.y, 2)
+				);
 			}
 
+			/**
+			 * Reconstruct node paths
+			 * 
+			 * @param Node current
+			 * @return [] paths
+			 */
 			reconstruct_path (current) {
 				var paths = [current];
 
@@ -106,51 +118,42 @@
 			}
 		}
 
+		/**
+		 * =============================================
+		 * | A point on the navigation system or graph |
+		 * =============================================
+		 */
 		class Node 
 		{
 			constructor () 
 			{
+				this.id = undefined;
 				this.x = undefined;
 				this.y = undefined;
-				this.id = undefined;
-				this.distance = Infinity;
-				this.previous = undefined;
-				this.neighbours = [];
-				this.parent = null;
 
 				this.fScore = Infinity;
 				this.gScore = Infinity;
 				this.cameFrom = null;
+				this.explored = false;
+
+				this.neighbours = [];
 			}
 
+			/**
+			 * Get neighbour nodes
+			 * @return [] this.neighbours
+			 */
 			getNeighbours ()
 			{
 				return this.neighbours;
 			}
-
-			// https://stackoverflow.com/questions/8934877/obtain-smallest-value-from-array-in-javascript
-			shortestNeighbour ()
-			{
-				var distances = [];
-
-				for (var i = 0; i < this.neighbours.length; i++)
-				{
-					var neighbour = this.neighbours[i];
-
-					if (!neighbour) {
-						continue;
-					}
-
-					distances.push(neighbour.distance);
-				}
-
-				var shortest = Math.min(...distances);
-				var index = distances.indexOf(shortest);
-				
-				return this.neighbours[index];
-			}
 		}
 
+		/**
+		 * =============================================
+		 * | The navigation system or graph            |
+		 * =============================================
+		 */
 		class Graph 
 		{
 			constructor () 
@@ -180,177 +183,147 @@
 					var current = this.nodes[i];
 
 					var topLeft = this.nodes.find((node) => { return node.x + 1 == current.x && node.y + 1 == current.y });
-					if (topLeft) {
-						topLeft.distance = Math.sqrt(Math.pow(topLeft.x - current.x, 2) + Math.pow(topLeft.y - current.y, 2));
-						current.neighbours.push(topLeft);
-					}
 
 					var top = this.nodes.find((node) => { return node.x == current.x && node.y + 1 == current.y });
-					if (top) {
-						top.distance = Math.sqrt(Math.pow(top.x - current.x, 2) + Math.pow(top.y - current.y, 2));
-						current.neighbours.push(top);
-					}
-
+					
 					var topRight = this.nodes.find((node) => { return node.x - 1 == current.x && node.y + 1 == current.y });
-					if (topRight) {
-						topRight.distance = Math.sqrt(Math.pow(topRight.x - current.x, 2) + Math.pow(topRight.y - current.y, 2));
-						current.neighbours.push(topRight);
-					}
-
+					
 					var left = this.nodes.find((node) => { return node.x + 1 == current.x && node.y == current.y });
-					if (left) {
-						left.distance = Math.sqrt(Math.pow(left.x - current.x, 2) + Math.pow(left.y - current.y, 2));
-						current.neighbours.push(left);
-					}
-
+					
 					var right = this.nodes.find((node) => { return node.x - 1 == current.x && node.y == current.y });
-					if (right) {
-						right.distance = Math.sqrt(Math.pow(right.x - current.x, 2) + Math.pow(right.y - current.y, 2));
-						current.neighbours.push(right);
-					}
-
+					
 					var bottomLeft = this.nodes.find((node) => { return node.x + 1 == current.x && node.y - 1 == current.y });
-					if (bottomLeft) {
-						bottomLeft.distance = Math.sqrt(Math.pow(bottomLeft.x - current.x, 2) + Math.pow(bottomLeft.y - current.y, 2));
-						current.neighbours.push(bottomLeft);
-					}
-
+					
 					var bottom = this.nodes.find((node) => { return node.x == current.x && node.y - 1 == current.y });
-					if (bottom) {
-						bottom.distance = Math.sqrt(Math.pow(bottom.x - current.x, 2) + Math.pow(bottom.y - current.y, 2));
-						current.neighbours.push(bottom);
-					}
-
+					
 					var bottomRight = this.nodes.find((node) => { return node.x - 1 == current.x && node.y - 1 == current.y });
 
-					if (bottomRight) {
-						bottomRight.distance = Math.sqrt(Math.pow(bottomRight.x - current.x, 2) + Math.pow(bottomRight.y - current.y, 2));
-						current.neighbours.push(bottomRight);
-					}
+					var neighbours = [
+						topLeft, top, topRight,
+						left, right,
+						bottomLeft, bottomRight
+					];
+
+					current.neighbours = neighbours;
 				}
-
-
 			}
 
+			/**
+			 * Get navigation nodes
+			 * @return [] this.nodes
+			 */
 			getNodes () 
 			{
 				return this.nodes;
 			}
 		}
 
-		/**
-		 * https://en.wikipedia.org/wiki/Binary_heap
-		 */
 		class BinaryMinHeap {
-			
 			constructor () {
-				this.list = [null];
+				this.queue = [];
 			}
 
 			/**
-			 * Insert a given node to the list
-			 * @param Node node
-			 * @return void
-			 */
-			insert (node) {
-				var length = this.list.length - 1;
-				var parentIndex = parseInt(this.list.length / 2);
-				var parent = this.list[parentIndex];
-
-				var currentIndex = this.list.length;
-
-				// First node
-				if (this.list.length === 0) {
-					this.list.push(node);
-					return;
-				}
-
-				// Add to the list
-				this.list.push(node);
-
-				while (parent && node.fScore < parent.fScore) {
-
-					var temp = this.list[currentIndex];
-					this.list[currentIndex] = this.list[parentIndex];
-					this.list[parentIndex] = temp;
-
-					currentIndex = parentIndex;
-					parentIndex = parseInt(currentIndex / 2);
-
-					parent = this.list[parentIndex];
-				}
-			}
-
-			/**
-			 * Remove the first index from the list and
-			 * stabilize the binary heap data structure
-			 *
-			 * @return int element
-			 */
-			extract () {
-				var element = this.list[1];
-
-				this.list.splice(1, 1, this.list[this.list.length - 1]);
-				this.list.splice(this.list.length - 1, 1);
-
-				this.stabilize(1);
-
-				return element;
-			}
-
-			/**
-			 * Reposition the given index children
+			 * Sort / Rebuild the heap
 			 *
 			 * @param int index
 			 * @return void
 			 */
-			stabilize (index) {
-				var leftChild = 2 * index;
-				var rightChild = 2 * index + 1;
+			minHeapify (index) 
+			{
+				var left = index * 2 + 1;
+				var right = index * 2 + 2;
 
-				var length = this.list.length - 1;
 				var smallest = index;
 
-				if (
-					leftChild <= length && 
-					this.list[leftChild].fScore < this.list[smallest].fScore
-				)
-				{
-					smallest = leftChild;
-				}
-
-				if (
-					rightChild <= length && 
-					this.list[rightChild].fScore < this.list[smallest].fScore
-				)
-				{
-					smallest = rightChild;
+				if (left < this.queue.length && this.queue[smallest].fScore > this.queue[left].fScore) {
+					smallest = left
+				} 
+				
+				if (right < this.queue.length && this.queue[smallest].fScore > this.queue[right].fScore) {
+					smallest = right;
 				}
 
 				if (smallest != index) {
+					// swap
+					var temp = this.queue[smallest];
+					this.queue[smallest] = this.queue[index];
+					this.queue[index] = temp;
 
-					var temp = this.list[smallest];
-					this.list[smallest] = this.list[index];
-					this.list[index] = temp;
+					this.minHeapify(smallest);
+				}
+			}
 
-					this.stabilize(smallest);
+			/**
+			 * Insert a new node onto the queue list
+			 *
+			 * @param NavigationNode node
+			 * @retur void
+			 */
+			insert (node)
+			{
+				this.queue.push(node);
+
+				var index = this.queue.length - 1;
+				var parent = Math.floor((index - 1) / 2);
+
+				// Swap parent and current
+				while (this.queue[parent] != null && this.queue[parent].fScore > this.queue[index].fScore) {
+					var temp = this.queue[index];
+					this.queue[index] = this.queue[parent];
+					this.queue[parent] = temp;
+
+					index = parent;
+					parent = Math.floor(index - 1 / 2);
+				}
+			}
+
+			/**
+			 * Extract the smallest value
+			 * @return int value
+			 */
+			extract ()
+			{
+				if (this.queue.length < 1) {
+					return null;
 				}
 
+				var smallest = this.queue[0];
+				
+				// remove element at index 0 from the array
+				this.queue.splice(0, 1);
+
+				// Rebuild the heap
+				this.minHeapify(0);
+
+				return smallest;
+			}
+
+			/**
+			 * Output the list
+			 * @return void
+			 */
+			toString ()
+			{
+				return this.queue;
+			}
+
+			/**
+			 * Is the queue empty?
+			 * @return bool
+			 */
+			notEmpty ()
+			{
+				return this.queue.length > 0;
 			}
 		}
 
-		var G = new Graph();
-		var D = new A_Star(G);
+		var graph = new Graph();
+		var start = graph.getNodes()[0];
+		var end = graph.getNodes()[24];
 
-		var node0 = G.getNodes()[0];
-		var node8 = G.getNodes()[7];
-		var node24 = G.getNodes()[24];
-
-		var a_star = new A_Star();
-		console.log(a_star.search(node0, node24));
-
-		console.log("DONE.");
-
+		var pathfinder = new AStar(graph);
+		console.log(pathfinder.search(start, end));
 	</script>
 </body>
 </html>
